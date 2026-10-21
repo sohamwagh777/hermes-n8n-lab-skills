@@ -1,0 +1,159 @@
+{
+  "name": "HERMES-LAB - 07A Sales Route",
+  "description": "Ladder step 3 parent A (DRY): manual trigger -> Code node emits 2 sample leads -> Execute Sub-workflow (mode each, Define Below per-item inputs) calls HERMES-LAB - 07 Sub Format Card once per item -> Sales Summary stamps route=sales.",
+  "nodes": [
+    {
+      "id": "9dd3b1c3-503d-43c9-b0f9-7f905f1814fa",
+      "name": "Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "42d456f6-c410-4818-998f-324c9fdc3bc5",
+      "name": "Make Leads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "return [\n  { json: { fullName: 'Grace Hopper', company: 'Globex International', score: 91 } },\n  { json: { fullName: 'Linus Torvalds', company: 'Acme Corp', score: 55 } }\n];"
+      }
+    },
+    {
+      "id": "15fa3123-7d83-49de-93b4-5f7bdcedf406",
+      "name": "Card Each",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        448,
+        0
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "",
+          "cachedResultName": "HERMES-LAB - 07 Sub Format Card"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "fullName": "={{ $json.fullName }}",
+            "company": "={{ $json.company }}",
+            "score": "={{ $json.score }}"
+          },
+          "schema": [
+            {
+              "id": "fullName",
+              "displayName": "fullName",
+              "required": true,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": true,
+              "display": true,
+              "type": "string"
+            },
+            {
+              "id": "score",
+              "displayName": "score",
+              "required": true,
+              "display": true,
+              "type": "number"
+            }
+          ]
+        },
+        "mode": "each"
+      }
+    },
+    {
+      "id": "232a3e4e-b2dc-4951-8838-f960d12f5681",
+      "name": "Sales Summary",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        672,
+        0
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": true,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "route",
+              "name": "route",
+              "value": "sales",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Make Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make Leads": {
+      "main": [
+        [
+          {
+            "node": "Card Each",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Card Each": {
+      "main": [
+        [
+          {
+            "node": "Sales Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "nodeGroups": [],
+  "pinData": null,
+  "tags": [
+    {
+      "name": "hermes-lab"
+    }
+  ],
+  "versionMetadata": {
+    "name": "Initial sales parent calling shared sub",
+    "description": "Parent A calls the shared 07 sub in mode 'each' (per input item)."
+  },
+  "active": false
+}

@@ -1,0 +1,139 @@
+{
+  "name": "HERMES-LAB - 04 Sub Calc Stats",
+  "description": "HERMES-LAB practice sub-workflow (callable function): Execute Workflow Trigger with Define Below typed inputs (numbers: array, label: string) \u2192 Code node computing count/sum/avg/max \u2192 Return Stats shaper whitelisting the contract. Stateless pure input-out",
+  "nodes": [
+    {
+      "id": "8268b094-d551-49d5-b7ff-ba2810a7a830",
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "numbers",
+              "type": "array"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "2fdb5d0e-9232-48fa-8f56-c918541ba967",
+      "name": "Compute Stats",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const inp = $input.first().json;\nconst nums = Array.isArray(inp.numbers) ? inp.numbers.filter(n => typeof n === 'number') : [];\nconst sum = nums.reduce((a, b) => a + b, 0);\nreturn [{\n  json: {\n    label: inp.label ?? 'untitled',\n    count: nums.length,\n    sum: Math.round(sum * 100) / 100,\n    avg: nums.length ? Math.round((sum / nums.length) * 100) / 100 : null,\n    max: nums.length ? Math.max(...nums) : null\n  }\n}];"
+      }
+    },
+    {
+      "id": "3bc28fec-d4f3-48cb-8fc5-3104d762b560",
+      "name": "Return Stats",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        448,
+        0
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "label",
+              "name": "label",
+              "value": "={{ $(\"Compute Stats\").item.json.label }}",
+              "type": "string"
+            },
+            {
+              "id": "count",
+              "name": "count",
+              "value": "={{ $(\"Compute Stats\").item.json.count }}",
+              "type": "number"
+            },
+            {
+              "id": "sum",
+              "name": "sum",
+              "value": "={{ $(\"Compute Stats\").item.json.sum }}",
+              "type": "number"
+            },
+            {
+              "id": "avg",
+              "name": "avg",
+              "value": "={{ $(\"Compute Stats\").item.json.avg }}",
+              "type": "number"
+            },
+            {
+              "id": "max",
+              "name": "max",
+              "value": "={{ $(\"Compute Stats\").item.json.max }}",
+              "type": "number"
+            }
+          ]
+        }
+      },
+      "notes": "Sub-workflow return-shaper: the explicit API boundary every caller reads. Whitelisted here so internal scratch fields never leak."
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Compute Stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute Stats": {
+      "main": [
+        [
+          {
+            "node": "Return Stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "nodeGroups": [],
+  "pinData": null,
+  "tags": [
+    {
+      "name": "hermes-lab"
+    },
+    {
+      "name": "subworkflow"
+    }
+  ],
+  "versionMetadata": {
+    "name": "Initial: stats sub-workflow",
+    "description": "Practice lab 04a: stateless sub-workflow with typed Define Below inputs and explicit return contract. Inputs: numbers(array), label(string). Output: {label,count,sum,avg,max}."
+  },
+  "active": false
+}

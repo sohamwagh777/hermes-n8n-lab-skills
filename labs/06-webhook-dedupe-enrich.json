@@ -1,0 +1,320 @@
+{
+  "name": "HERMES-LAB - 06 Webhook Dedupe Enrich",
+  "description": "Ladder step 2: webhook POST -> Split Out -> normalize -> Remove Duplicates (email) -> HTTP GET mock enrich API per item -> Merge append; error output quarantines non-2xx enrichments. Needs host:8899 mock server.",
+  "nodes": [
+    {
+      "id": "7bab070f-63b3-4bc7-8e6e-d4cb780494d2",
+      "name": "Lead Intake Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "hermes-lab-06-intake",
+        "responseMode": "onReceived"
+      },
+      "webhookId": "050e04f5-46be-4a59-b418-fb459a9fb399"
+    },
+    {
+      "id": "259ed3e3-75cc-4d4b-9f24-47c3d9de5f97",
+      "name": "Split Submissions",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        272,
+        128
+      ],
+      "parameters": {
+        "fieldToSplitOut": "body.submissions"
+      }
+    },
+    {
+      "id": "c95a69d2-dac4-4594-a857-65a9d5bf64ce",
+      "name": "Normalize Fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        496,
+        128
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "email",
+              "name": "email",
+              "value": "={{ ($json.email ?? \"\").toString().trim().toLowerCase() }}",
+              "type": "string"
+            },
+            {
+              "id": "name",
+              "name": "name",
+              "value": "={{ ($json.name ?? \"\").toString().trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "submitId",
+              "name": "submitId",
+              "value": "={{ $json.id }}",
+              "type": "number"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b557b2d4-8f08-4048-8abb-227bbb2efd66",
+      "name": "Dedupe by Email",
+      "type": "n8n-nodes-base.removeDuplicates",
+      "typeVersion": 1,
+      "position": [
+        720,
+        128
+      ],
+      "parameters": {
+        "compare": "selectedFields",
+        "fieldsToCompare": "email"
+      }
+    },
+    {
+      "id": "0133cc42-6a37-4abf-8521-e53bdef4dca8",
+      "name": "Enrich API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        944,
+        128
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "http://host.docker.internal:8899/enrich",
+        "sendQuery": true,
+        "specifyQuery": "keypair",
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "email",
+              "value": "={{ $json.email }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "800927fa-0026-4f7a-8db0-492b43393c1b",
+      "name": "Final Lead Record",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        752,
+        0
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": true,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "submitName",
+              "name": "submitName",
+              "value": "={{ $(\"Normalize Fields\").item.json.name }}",
+              "type": "string"
+            },
+            {
+              "id": "sid",
+              "name": "submitId",
+              "value": "={{ $(\"Normalize Fields\").item.json.submitId }}",
+              "type": "number"
+            },
+            {
+              "id": "status",
+              "name": "status",
+              "value": "enriched",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "5809b7a3-15a3-4db1-8273-da5ed0b7f9f2",
+      "name": "Collect All",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        976,
+        0
+      ],
+      "parameters": {
+        "mode": "append"
+      }
+    },
+    {
+      "id": "26a965b7-d64d-48e8-803e-01d533841530",
+      "name": "Quarantine Bad Leads",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        816,
+        288
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "st",
+              "name": "status",
+              "type": "string",
+              "value": "quarantined"
+            },
+            {
+              "id": "em",
+              "name": "email",
+              "type": "string",
+              "value": "={{ $json.email ?? $(\"Normalize Fields\").item.json.email }}"
+            },
+            {
+              "id": "ec",
+              "name": "errorCode",
+              "type": "string",
+              "value": "={{ typeof $json.error === 'string' ? $json.error.slice(0, 200) : ($json.error?.message ?? 'unknown') }}"
+            },
+            {
+              "id": "qa",
+              "name": "quarantinedAt",
+              "type": "string",
+              "value": "={{ $now.toISO() }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "mode": "manual"
+      }
+    }
+  ],
+  "connections": {
+    "Lead Intake Webhook": {
+      "main": [
+        [
+          {
+            "node": "Split Submissions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Submissions": {
+      "main": [
+        [
+          {
+            "node": "Normalize Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Fields": {
+      "main": [
+        [
+          {
+            "node": "Dedupe by Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dedupe by Email": {
+      "main": [
+        [
+          {
+            "node": "Enrich API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enrich API": {
+      "main": [
+        [
+          {
+            "node": "Final Lead Record",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Quarantine Bad Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Final Lead Record": {
+      "main": [
+        [
+          {
+            "node": "Collect All",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quarantine Bad Leads": {
+      "main": [
+        [
+          {
+            "node": "Collect All",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "nodeGroups": [
+    {
+      "id": "a0a5c22f-1ccf-4845-9125-d693667bb742",
+      "name": "Intake pipeline",
+      "nodeIds": [
+        "259ed3e3-75cc-4d4b-9f24-47c3d9de5f97",
+        "c95a69d2-dac4-4594-a857-65a9d5bf64ce",
+        "b557b2d4-8f08-4048-8abb-227bbb2efd66",
+        "0133cc42-6a37-4abf-8521-e53bdef4dca8"
+      ],
+      "description": "POST payload -> items -> normalized -> deduped -> enriched by mock API"
+    }
+  ],
+  "pinData": null,
+  "tags": [
+    {
+      "name": "webhook"
+    },
+    {
+      "name": "hermes-lab"
+    }
+  ],
+  "versionMetadata": {
+    "name": "Wire error branch + Quarantine node",
+    "description": "SDK dropped top-level config.settings (UNKNOWN_CONFIG_KEY) so onError applied via setNodeSettings instead. Added Quarantine Bad Leads on the httpRequest error output (sourceIndex 1) and wired it to Merge input 1 to satisfy MERGE_SINGLE_INPUT."
+  },
+  "active": false
+}

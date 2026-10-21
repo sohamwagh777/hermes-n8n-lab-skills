@@ -1,0 +1,142 @@
+{
+  "name": "HERMES-LAB - 01 Manual Set Expressions",
+  "description": "HERMES-LAB practice workflow 1: manual trigger feeding an Edit Fields node that builds a typed sample record, then a second Edit Fields node shaping a summary via node-name expression references, Luxon date math, ternaries and method chains. Teaching arti",
+  "nodes": [
+    {
+      "id": "70e937cd-e4a3-4a49-b523-35730d52b13b",
+      "name": "Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "1c7ce431-4540-4937-b959-45a0cb811139",
+      "name": "Build Sample Record",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        0
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "name",
+              "name": "customerName",
+              "value": "Ada Lovelace",
+              "type": "string"
+            },
+            {
+              "id": "total",
+              "name": "orderTotal",
+              "value": 149.99,
+              "type": "number"
+            },
+            {
+              "id": "status",
+              "name": "status",
+              "value": "pending",
+              "type": "string"
+            },
+            {
+              "id": "created",
+              "name": "createdAt",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "3169c529-cedf-4f0a-a7e2-ee680fe61da5",
+      "name": "Shape Summary",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        448,
+        0
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "headline",
+              "name": "headline",
+              "value": "=Order by {{ $(\"Build Sample Record\").item.json.customerName.toUpperCase() }} -- tier: {{ $(\"Build Sample Record\").item.json.orderTotal >= 100 ? \"VIP\" : \"standard\" }}",
+              "type": "string"
+            },
+            {
+              "id": "receipt",
+              "name": "receiptId",
+              "value": "={{ \"RCPT-\" + $now.toFormat(\"yyyyMMdd\") + \"-\" + $(\"Build Sample Record\").item.json.customerName.replace(/[^A-Za-z]/g, \"\").slice(0, 3).toUpperCase() }}",
+              "type": "string"
+            },
+            {
+              "id": "items",
+              "name": "itemCount",
+              "value": "={{ [1, 2, 3].filter(n => n > 1).length }}",
+              "type": "number"
+            },
+            {
+              "id": "processed",
+              "name": "processedAt",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Build Sample Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Sample Record": {
+      "main": [
+        [
+          {
+            "node": "Shape Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "nodeGroups": [],
+  "pinData": null,
+  "tags": [
+    {
+      "name": "hermes-lab"
+    }
+  ],
+  "versionMetadata": {
+    "name": "Initial: manual trigger + Set + expressions lab",
+    "description": "Practice lab 01 for the Hermes n8n self-teaching mission. Manual trigger, two Edit Fields nodes exercising expressions, node-name references and Luxon."
+  },
+  "active": false
+}

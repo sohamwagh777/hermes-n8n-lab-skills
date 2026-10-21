@@ -1,14 +1,19 @@
-# Hermes × n8n — Lab Skills & Agent Bootstrapping Prompt
+# Hermes × n8n — Lab Skills, Importable Labs & Agent Bootstrapping Prompt
 
-Two battle-tested Hermes skills for learning **n8n by doing**, plus a ready-to-paste
-prompt that gets any Hermes instance comfortable with n8n through a supervised
-practice ladder (all workflows built are sandbox-prefixed, never activated, never
-touch real data or credentials).
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![secret-scan](https://github.com/sohamwagh777/hermes-n8n-lab-skills/actions/workflows/secret-scan.yml/badge.svg)](https://github.com/sohamwagh777/hermes-n8n-lab-skills/actions/workflows/secret-scan.yml)
 
-This is the exact method that took a fresh Hermes from zero to: expressions, loops,
-error branches, sub-workflow libraries, webhook→dedupe→HTTP pipelines, workspace
-error alarms, and local-LLM agent/capstone workflows — with every doc-vs-reality
-gap caught by execution evidence, not assumed.
+Two battle-tested Hermes skills for learning **n8n by doing**, the 13 practice
+workflows from a real supervised run (import them, don't build them from
+scratch), a one-command sandbox, and a ready-to-paste prompt that gets any
+Hermes instance comfortable with n8n through a supervised practice ladder (all
+workflows built are sandbox-prefixed, never activated, never touch real data or
+credentials).
+
+This is the exact method that took a fresh Hermes from zero to: expressions,
+loops, error branches, sub-workflow libraries, webhook→dedupe→HTTP pipelines,
+workspace error alarms, and local-LLM agent/capstone workflows — with every
+doc-vs-reality gap caught by execution evidence, not assumed.
 
 ## What's in this repo
 
@@ -17,8 +22,17 @@ skills/n8n-lessons-learned/        # empirical gotchas: where n8n docs lie and w
                                    # actually happens at runtime (verified findings)
 skills/n8n-self-study-curriculum/  # distilled learning roadmap + course digests +
                                    # the 5-step practice ladder this repo automates
+labs/*.json                        # the 13 HERMES-LAB workflows, credential-stripped,
+                                   # import-ready (verified: re-imported into a live
+                                   # n8n before publishing)
+prompts/n8n-play.md                # the bootstrapping prompt, versioned separately
+docs/TROUBLESHOOTING.md            # the doc-lies FAQ, in plain English
 support/mock_enrich.py             # zero-dependency fake "lead enrichment" API used
-                                   # by the webhook pipeline lab (run anywhere, port 8899)
+                                   # by the webhook pipeline lab (port 8899)
+support/report-template.md         # the evidence-or-no-claim report format
+support/example-report.md          # an anonymized real report, as the quality bar
+docker-compose.yml                 # one-command sandbox: n8n + mock API
+SECURITY.md                        # the no-secrets policy (CI-enforced via gitleaks)
 ```
 
 `n8n-lessons-learned` is the crown jewel — findings like:
@@ -31,7 +45,50 @@ support/mock_enrich.py             # zero-dependency fake "lead enrichment" API 
 - Continue-on-Fail turns dead-model runs into green runs with empty output — the
   silent-success trap, and the guard pattern that fixes it
 
-## Install
+## Quick start — the whole sandbox in one command
+
+```bash
+git clone https://github.com/sohamwagh777/hermes-n8n-lab-skills
+cd hermes-n8n-lab-skills
+docker compose up -d
+```
+
+- n8n UI: http://localhost:5678 (create a local owner account on first visit)
+- mock API: `curl "http://localhost:8899/enrich?email=ada@acme.com"`
+- wipe everything: `docker compose down -v`
+
+## Import the labs (skip the building, keep the learning)
+
+`labs/` holds all 13 workflows from a completed supervised run, with credential
+bindings and every instance-specific identifier stripped. In the n8n UI:
+**Workflows → ⋯ → Import from File**, one file per lab. Suggested order:
+
+| File | Teaches |
+|------|---------|
+| 01-manual-set-expressions | expressions: ternaries, Luxon dates, node refs |
+| 02-loops-code-transform | Code nodes, per-item iteration, splitInBatches + aggregate |
+| 03-error-branch-handling | onError continueErrorOutput → Quarantine, error-field shapes |
+| 04-parent-calls-sub + 04-sub-calc-stats | sub-workflows: typed inputs, return contracts |
+| 05-ai-agent-ollama | AI Agent + Calculator tool on a local model |
+| 06-webhook-dedupe-enrich | webhook → split → dedupe → HTTP enrich → merge |
+| 07-sub-format-card + 07A + 07B | one shared sub called by two parents (each/once) |
+| 08-victim-failing + 08-error-watcher | production-only error alarms, red/green proof |
+| 09-ai-repurposer | 3 chained LLM calls + empty-output guard |
+
+Two one-minute re-binds after importing (workflow ids are instance-specific,
+so the shipped JSON points nowhere on purpose):
+
+- **Labs 04 / 07A / 07B**: open the `Call Stats Sub` / `Card Each` / `Card Once`
+  node and pick your imported sub-workflow (names are kept as hints).
+- **Lab 08**: in the victim workflow's Settings, set *Error Workflow* to your
+  imported watcher. Remember: the watcher must be **published** first
+  (`docs/TROUBLESHOOTING.md`).
+
+Labs 05 and 09 need an **Ollama credential** you create yourself (UI →
+Credentials → Ollama, Base URL `http://host.docker.internal:11434`) — the
+imported JSON deliberately carries none.
+
+## Install the skills
 
 1. **Official n8n skills** (the how-to-build layer) — from
    [n8n-io/skills](https://github.com/n8n-io/skills):
@@ -44,100 +101,64 @@ support/mock_enrich.py             # zero-dependency fake "lead enrichment" API 
 2. **These lab skills** (the learn-by-playing + gotchas layer):
 
    ```bash
-   git clone <this-repo> /tmp/hermes-n8n-lab-skills
+   git clone https://github.com/sohamwagh777/hermes-n8n-lab-skills /tmp/hermes-n8n-lab-skills
    cp -r /tmp/hermes-n8n-lab-skills/skills/* ~/.hermes/skills/
    ```
 
-3. **An n8n instance + its MCP server** (n8n ≥ the version exposing the MCP server),
-   registered in Hermes config as an HTTP MCP server with your bearer token.
-   Verify before starting: your Hermes should see tools like
+3. **An n8n instance + its MCP server** (n8n ≥ the version exposing the MCP
+   server), registered in Hermes config as an HTTP MCP server with your bearer
+   token. Verify before starting: your Hermes should see tools like
    `create_workflow_from_code`, `validate_workflow`, `execute_workflow`,
    `get_workflow_execution`.
 
-4. *(For the webhook pipeline lab)* start the mock API:
-
-   ```bash
-   docker run -d --name hermes-lab-mock-enrich --restart unless-stopped \
-     -v $PWD/support/mock_enrich.py:/app/mock_enrich.py:ro -p 8899:8899 \
-     python:3-alpine python /app/mock_enrich.py
-   ```
-
 ## The bootstrapping prompt
 
-Paste everything in the block below to your Hermes. It contains its own safety
-rails — keep them.
+It lives in [`prompts/n8n-play.md`](prompts/n8n-play.md) — paste it to your
+Hermes and it will run the full ladder (or import the labs above and verify
+them). It carries its own safety rails — keep them.
 
-```text
-You have the n8n skills installed (the official n8n-*-official set, plus
-n8n-lessons-learned and n8n-self-study-curriculum) and the n8n MCP server
-connected. Your mission: get comfortable with n8n by practicing, in this order.
+## Environment used in the reference run
 
-Rules (strict):
-- Prefix every workflow you create with "HERMES-LAB - ".
-- Create workflows INACTIVE only. Never activate anything — with ONE exception:
-  a workspace Error Trigger workflow may stay active (that is the only state in
-  which an alarm can ring). Justify any exception in your final report.
-- Never edit or delete workflows that don't start with "HERMES-LAB - ".
-- Never ask for, store, invent, or bind credentials. If a node needs one, note
-  it in the report and move on. Exception: if the human hands you a credential
-  they created, you may bind it via the MCP and run the lab for real.
-- No emails, messages, or external API calls with real data. Use the mock
-  enrichment API (port 8899) or public echo endpoints with sample data.
-- Every "it works" claim must cite an execution id and the runData field that
-  proves it. No evidence, no claim.
+The findings, labs, and prompt were earned on this stack — reproduce it or
+swap equivalents:
 
-Process — build the ladder, validating and running each step before the next:
-1. FOUNDATION
-   a. Manual trigger + Set node + expressions (ternaries, Luxon dates, node refs)
-   b. Loops: Code node emitting sample items, per-item iteration, a real
-      splitInBatches with nextBatch/onDone, aggregate on the done branch
-   c. Error handling: per-item validator with onError continueErrorOutput wired
-      to a Quarantine node; read error fields shape-agnostically
-   d. Sub-workflows: a parent calling an INACTIVE sub via typed workflowInputs;
-      then a shared sub called by TWO parents (once-mode and each-mode)
-2. INTERMEDIATE
-   e. Webhook pipeline: POST intake -> Split Out -> normalize -> Remove Duplicates
-      -> HTTP Request enrichment (per-item query param, onError continueErrorOutput
-      -> quarantine on non-2xx) -> Merge append
-   f. Workspace error alarm: an Error Trigger workflow (stay ACTIVE) attached via
-      the errorWorkflow setting to a victim workflow ending in Stop And Error.
-      Prove both halves: a manual failure must NOT fire the alarm; a production
-      run failure MUST fire it within ~50ms. Note: the alarm workflow must be
-      published before the setting accepts it, and a Manual Trigger alone cannot
-      be published — temporarily swap in a webhook trigger, then restore.
-3. AI (only if the human confirms a local model is available, e.g. Ollama)
-   g. AI Agent with a tool (e.g. Calculator) answering an arithmetic question;
-      verify the tool was actually used via the run's subNodeExecutionData trace.
-      Model name/serve state is the human's environment — test reachability from
-      the n8n container yourself before blaming the node.
-   h. Capstone: one source article -> 3 chained LLM calls (tweet with exact
-      hashtag count, no-greeting email, N headlines) -> shaper -> a guard node
-      that THROWS when all outputs are empty (defeat the Continue-on-Fail
-      silent-success trap; prove it both red with a bogus model name and green
-      with the real one).
+- **n8n**: official Docker image on a bridge network (the `docker-compose.yml`
+  above matches). The MCP server is exposed by n8n at `/mcp-server/http` and
+  registered in Hermes as an HTTP MCP server with a bearer token.
+- **LLM**: Ollama running on the **host** (not in the compose file), serving a
+  small model (`bonsai-2:4b`). Two quirks that cost real debugging time and are
+  documented in `docs/TROUBLESHOOTING.md`: it is a *reasoning* model, so AI
+  nodes need `think: false` and `numPredict >= 1024` or answers come back empty;
+  and `keepAlive: 30m` avoids ~3 s cold starts per call.
+- **Host ↔ container networking**: the n8n container cannot use `localhost` for
+  host services — the Ollama credential Base URL and the mock-API URL both use
+  `http://host.docker.internal:<port>` (on Linux this needs
+  `host.docker.internal:host-gateway`, which compose already sets).
+- **Mock enrichment API**: the `mock-enrich` service from compose, on port 8899
+  — fictional data, deterministic by email domain.
+- **Credentials**: created by the human in the n8n UI (the Ollama one); the
+  agent binds but never creates or reads them.
 
-Loop discipline:
-- Read n8n-lessons-learned FIRST for each area; read the matching
-  n8n-*-official skill for patterns. Before submitting SDK builder code,
-  brace-balance it with a quick script — parser errors are cheap to prevent.
-- Whenever reality disagrees with the docs, patch n8n-lessons-learned with the
-  verified finding (what the docs say, what actually happens, the evidence).
-- Finish with a report: per-lab run ids + proof fields, failures and fixes,
-  skills that mattered, and a cleanup list (containers, daemons, models, scratch
-  files) marked for the human's verdict — never delete anything unasked.
-```
+Your agent will need equivalents (any local or remote OpenAI-compatible model
+works for the AI labs); nothing above is required by name.
 
 ## Definition of done
 
-A run of this prompt is complete when every ladder step has a successful
+A run of the prompt is complete when every ladder step has a successful
 execution (verified via `get_workflow_execution` runData, not just `status`), the
 alarm lab has its red/green contrast pair, the AI labs show real model traces or a
 documented human-environment blocker, and `n8n-lessons-learned` came out richer
 than it went in.
 
-## Safety notes
+## Safety & security notes
 
-- Everything built here is prefixed, inactive, and disposable; deletion order:
-  HERMES-LAB workflows → mock container → any started daemons.
-- The mock API and all sample data are fictional. The skills reference no
-  credentials, tokens, hostnames, or personal data.
+- Everything built by the prompt is prefixed, inactive, and disposable;
+  deletion order: HERMES-LAB workflows → mock container → any started daemons.
+- The mock API and all sample data are fictional. No skill, lab, prompt, or
+  example in this repo contains credentials, tokens, hostnames, or personal
+  data — and [gitleaks runs on every push](.github/workflows/secret-scan.yml)
+  to keep it that way. See [SECURITY.md](SECURITY.md).
+
+## License
+
+[MIT](LICENSE) — so genuinely, not "all rights reserved" by accident.

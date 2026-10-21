@@ -1,0 +1,197 @@
+{
+  "name": "HERMES-LAB - 03 Error Branch Handling",
+  "description": "HERMES-LAB practice workflow 3: per-item Code validator with onError continueErrorOutput; items missing sku throw and land on the error output wired to a Quarantine node that extracts a machine-readable errorCode (MISSING_SKU) plus message and timestamp, ",
+  "nodes": [
+    {
+      "id": "c9bf93bc-415f-43af-8b8e-5218a3e2c126",
+      "name": "Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        96
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "23c01df6-0197-4c60-a36a-d40e7c9ac705",
+      "name": "Build Order Batch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        96
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "return [\n  { json: { orderId: 'ORD-101', sku: 'SKU-A', qty: 2 } },\n  { json: { orderId: 'ORD-102', sku: 'SKU-B', qty: 1 } },\n  { json: { orderId: 'ORD-103', qty: 4 } },\n  { json: { orderId: 'ORD-104', sku: 'SKU-D', qty: 3 } }\n];"
+      }
+    },
+    {
+      "id": "1c74e5d0-5fa3-4c7a-b627-9897717116b2",
+      "name": "Validate Item (throws on missing sku)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        96
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "if (!$json.sku) {\n  throw new Error('MISSING_SKU: order ' + ($json.orderId || 'unknown') + ' has no sku');\n}\nreturn { ...$json, skuChecked: true };"
+      },
+      "notes": "onError: continueErrorOutput routes per-item failures to the second output instead of halting the workflow. Both settings are required: onError AND the wired error output.",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "8c26923b-eabb-49d6-8d88-e68cfda35a6b",
+      "name": "Enrich Valid Order",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        672,
+        0
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": true,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "validated",
+              "name": "validatedAt",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "307003f0-1de0-43f7-86d0-98a12edc8a68",
+      "name": "Processed",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        896,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "d720d254-85ea-4cbc-a663-cc28ccb44f47",
+      "name": "Quarantine Failed Item",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        672,
+        192
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "oid",
+              "name": "orderId",
+              "type": "string",
+              "value": "={{ $json.orderId ?? \"unknown\" }}"
+            },
+            {
+              "id": "code",
+              "name": "errorCode",
+              "type": "string",
+              "value": "={{ ((typeof $json.error === 'string' ? $json.error : ($json.error?.message ?? 'UNKNOWN')) + '').split(':')[0] }}"
+            },
+            {
+              "id": "msg",
+              "name": "errorMessage",
+              "type": "string",
+              "value": "={{ typeof $json.error === 'string' ? $json.error : ($json.error?.message ?? 'no error info') }}"
+            },
+            {
+              "id": "when",
+              "name": "quarantinedAt",
+              "type": "string",
+              "value": "={{ $now.toISO() }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "mode": "manual"
+      },
+      "notes": "Error output items carry the original json plus an error object. Structured error fields: caller-fixable problems get a machine-readable code, not a generic blob."
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Build Order Batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Order Batch": {
+      "main": [
+        [
+          {
+            "node": "Validate Item (throws on missing sku)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Item (throws on missing sku)": {
+      "main": [
+        [
+          {
+            "node": "Enrich Valid Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Quarantine Failed Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enrich Valid Order": {
+      "main": [
+        [
+          {
+            "node": "Processed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "nodeGroups": [],
+  "pinData": null,
+  "tags": [
+    {
+      "name": "hermes-lab"
+    }
+  ],
+  "versionMetadata": {
+    "name": "Fix quarantine to read error-as-string",
+    "description": "Error output carries error as a plain string in this n8n version, not an {message} object; expression now handles both shapes."
+  },
+  "active": false
+}

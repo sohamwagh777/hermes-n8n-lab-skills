@@ -1,0 +1,219 @@
+{
+  "name": "HERMES-LAB - 02 Loops Code Transform",
+  "description": "HERMES-LAB practice workflow 2: exercises all three loop mechanisms from n8n-loops-official \u2014 a Code node emitting 12 deterministic sample orders, default per-item iteration via Edit Fields, a genuine Loop Over Items (batchSize 5) with nextBatch/onDone wi",
+  "nodes": [
+    {
+      "id": "48232413-a1e2-45e5-a6ba-045726d4d3b6",
+      "name": "Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        144
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "36cfd720-a430-4f2a-b240-d75cffe973b7",
+      "name": "Generate Sample Orders",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        144
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const categories = ['tools', 'garden', 'books'];\nconst items = [];\nfor (let i = 1; i <= 12; i++) {\n  items.push({\n    json: {\n      orderId: 'ORD-' + String(i).padStart(3, '0'),\n      category: categories[i % 3],\n      qty: (i % 4) + 1,\n      unitPrice: 10 * i + 0.99,\n      status: i % 5 === 0 ? 'refunded' : 'paid'\n    }\n  });\n}\nreturn items;"
+      }
+    },
+    {
+      "id": "d0499721-0dbd-4614-bee9-408b125d2b6e",
+      "name": "Normalize Orders (per-item loop)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        448,
+        144
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": true,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "linetotal",
+              "name": "lineTotal",
+              "value": "={{ $json.qty * $json.unitPrice }}",
+              "type": "number"
+            },
+            {
+              "id": "catlabel",
+              "name": "categoryLabel",
+              "value": "={{ $json.category.toUpperCase() }}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "notes": "Default per-item iteration: this node runs once per order item automatically. No Loop Over Items needed for simple per-item transforms."
+    },
+    {
+      "id": "7cbf74d0-befd-438a-8552-7ec587924225",
+      "name": "Aggregate Per-Category Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const items = $input.all().map(i => i.json);\nconst byCat = {};\nfor (const it of items) {\n  if (!byCat[it.category]) {\n    byCat[it.category] = { orderCount: 0, totalRevenue: 0, refunded: 0 };\n  }\n  byCat[it.category].orderCount += 1;\n  byCat[it.category].totalRevenue += it.lineTotal;\n  if (it.status === 'refunded') {\n    byCat[it.category].refunded += 1;\n  }\n}\nreturn Object.entries(byCat).map(([category, s]) => ({\n  json: {\n    category,\n    orderCount: s.orderCount,\n    refundedCount: s.refunded,\n    totalRevenue: Math.round(s.totalRevenue * 100) / 100,\n    avgOrderValue: Math.round((s.totalRevenue / s.orderCount) * 100) / 100\n  }\n}));"
+      },
+      "notes": "Legitimate Code node case: multi-pass group-by aggregation across the whole dataset with accumulator maps \u2014 not expressible cleanly with per-item nodes."
+    },
+    {
+      "id": "8c8408bf-9511-42cd-b20a-ddfeaea64d63",
+      "name": "Done",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "32696c45-aea4-4591-b5c3-f4e7cb2ef97f",
+      "name": "Tag Batch Item",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        896,
+        192
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": true,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "tagged",
+              "name": "batchProcessedAt",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b0f02ecf-6318-4f14-b073-2f672ca90ade",
+      "name": "Batch Process (5 at a time)",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        672,
+        144
+      ],
+      "parameters": {
+        "batchSize": 5
+      }
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Generate Sample Orders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Sample Orders": {
+      "main": [
+        [
+          {
+            "node": "Normalize Orders (per-item loop)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Orders (per-item loop)": {
+      "main": [
+        [
+          {
+            "node": "Batch Process (5 at a time)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Per-Category Report": {
+      "main": [
+        [
+          {
+            "node": "Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Batch Item": {
+      "main": [
+        [
+          {
+            "node": "Batch Process (5 at a time)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Batch Process (5 at a time)": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Per-Category Report",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tag Batch Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "nodeGroups": [],
+  "pinData": null,
+  "tags": [
+    {
+      "name": "hermes-lab"
+    }
+  ],
+  "versionMetadata": {
+    "name": "Initial: loops + Code transformation lab",
+    "description": "Practice lab 02: implicit per-item loop, splitInBatches loop with nextBatch/onDone, aggregate Code node."
+  },
+  "active": false
+}

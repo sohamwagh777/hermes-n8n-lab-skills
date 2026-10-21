@@ -1,0 +1,122 @@
+{
+  "name": "HERMES-LAB - 08 Error Watcher",
+  "description": "Ladder step 4: workspace-wide error watcher. Error Trigger -> Set that formats a machine-readable failure alert (failed workflow name, execution id + URL, last node, error message, timestamp). Attached as errorWorkflow on HERMES-LAB - 08 Victim. Fires on ",
+  "nodes": [
+    {
+      "id": "02d89838-97a7-4757-ae98-d2644f1b6174",
+      "name": "On Any Workflow Failure",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "e7230274-2f1f-4811-9f99-ad4cd8085b26",
+      "name": "Format Alert",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        0
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "wf",
+              "name": "failedWorkflow",
+              "type": "string",
+              "value": "={{ $json.workflow?.name ?? 'unknown' }}"
+            },
+            {
+              "id": "wfid",
+              "name": "failedWorkflowId",
+              "type": "string",
+              "value": "={{ $json.workflow?.id ?? 'unknown' }}"
+            },
+            {
+              "id": "ex",
+              "name": "failedExecutionId",
+              "type": "string",
+              "value": "={{ $json.execution.id }}"
+            },
+            {
+              "id": "url",
+              "name": "executionUrl",
+              "type": "string",
+              "value": "={{ $json.execution.url }}"
+            },
+            {
+              "id": "md",
+              "name": "failedMode",
+              "type": "string",
+              "value": "={{ $json.execution.mode }}"
+            },
+            {
+              "id": "nd",
+              "name": "lastNodeExecuted",
+              "type": "string",
+              "value": "={{ $json.execution.lastNodeExecuted }}"
+            },
+            {
+              "id": "fnd",
+              "name": "failedNode",
+              "type": "string",
+              "value": "={{ $json.execution?.error?.node?.name ?? 'unknown' }}"
+            },
+            {
+              "id": "msg",
+              "name": "errorMessage",
+              "type": "string",
+              "value": "={{ $json.execution?.error?.message ?? 'unknown' }}"
+            },
+            {
+              "id": "at",
+              "name": "alertedAt",
+              "type": "string",
+              "value": "={{ $now.toISO() }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "mode": "manual"
+      }
+    }
+  ],
+  "connections": {
+    "On Any Workflow Failure": {
+      "main": [
+        [
+          {
+            "node": "Format Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "nodeGroups": [],
+  "pinData": null,
+  "tags": [
+    {
+      "name": "hermes-lab"
+    },
+    {
+      "name": "error-handling"
+    }
+  ],
+  "versionMetadata": {
+    "name": "Fix alert field paths",
+    "description": "Real Error Trigger payload shape: {execution:{id,url,mode,lastNodeExecuted,error:{message,node}},workflow:{id,name}} \u2014 NOT execution.workflowName / trigger.error as docs suggest. Corrected all alert field expressions."
+  },
+  "active": false
+}

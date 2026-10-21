@@ -1,0 +1,208 @@
+{
+  "name": "HERMES-LAB - 05 AI Agent Ollama",
+  "description": "HERMES-LAB practice workflow 5: AI Agent on LOCAL Ollama model bonsai-2:4b (reasoning model; think:false + numPredict:1024) with Calculator tool sub-node. Execution needs a user-created ollamaApi credential.",
+  "nodes": [
+    {
+      "id": "9a532cc8-1f02-4a9b-af2c-61cc76ab7765",
+      "name": "Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        112
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "5818d249-9be1-490d-84ea-a2762de8c378",
+      "name": "Build Prompt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        112
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "q",
+              "name": "question",
+              "value": "A shop sells 247 boxes and each box holds 38 nails. How many nails in total?",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "679da7d6-8645-48da-9fc3-e56edb23ca92",
+      "name": "Math Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        448,
+        112
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $(\"Build Prompt\").item.json.question }}",
+        "options": {
+          "systemMessage": "You are a precise arithmetic assistant. You have exactly one tool named Calculator. You MUST use the Calculator tool for any arithmetic instead of computing in your head. Reply with only the final numeric answer on a single line.",
+          "maxIterations": 5,
+          "enableStreaming": false
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "a4d47fea-c679-4eb5-8567-bb06764728c5",
+      "name": "Ollama bonsai-2 local",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        464,
+        336
+      ],
+      "parameters": {
+        "model": "bonsai-2:4b",
+        "options": {
+          "keepAlive": "30m",
+          "numPredict": 1024,
+          "temperature": 0.1,
+          "think": false
+        }
+      }
+    },
+    {
+      "id": "d9cfa12d-b953-472e-b9f6-807e2339722a",
+      "name": "Calculator",
+      "type": "@n8n/n8n-nodes-langchain.toolCalculator",
+      "typeVersion": 1,
+      "position": [
+        592,
+        336
+      ],
+      "parameters": {
+        "description": "Calculates an arithmetic expression. Pass a pure math expression such as \"247*38\". Use this for ALL arithmetic."
+      }
+    },
+    {
+      "id": "635b2d83-0a7e-4e50-aae8-3c751d2b8142",
+      "name": "Log Answer",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        800,
+        112
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ans",
+              "name": "answer",
+              "value": "={{ $(\"Math Agent\").item.json.output }}",
+              "type": "string"
+            },
+            {
+              "id": "src",
+              "name": "sourceQuestion",
+              "value": "={{ $(\"Build Prompt\").item.json.question }}",
+              "type": "string"
+            },
+            {
+              "id": "when",
+              "name": "answeredAt",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Build Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Prompt": {
+      "main": [
+        [
+          {
+            "node": "Math Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Math Agent": {
+      "main": [
+        [
+          {
+            "node": "Log Answer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculator": {
+      "ai_tool": [
+        [
+          {
+            "node": "Math Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama bonsai-2 local": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Math Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "nodeGroups": [],
+  "pinData": null,
+  "tags": [
+    {
+      "name": "ollama"
+    },
+    {
+      "name": "hermes-lab"
+    }
+  ],
+  "versionMetadata": {
+    "name": "Agent retries + model keepAlive",
+    "description": "Model hiccups no longer hard-fail the agent: 3 retries with 2s backoff. keepAlive 30m keeps bonsai loaded in ollama between runs (kills 3s cold-start)."
+  },
+  "active": false
+}

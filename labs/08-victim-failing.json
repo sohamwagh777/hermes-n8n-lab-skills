@@ -1,0 +1,96 @@
+{
+  "name": "HERMES-LAB - 08 Victim Failing",
+  "description": "Ladder step 4 victim: manual trigger -> pretend work Set -> Stop And Error node throwing a deliberate failure. Used to prove the 08 Error Watcher fires on production executions (errorWorkflow setting points at the watcher).",
+  "nodes": [
+    {
+      "id": "ece22466-68d7-4335-8b9d-9ff6c2c1a267",
+      "name": "Pretend Work OK",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        0
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "step",
+              "name": "step",
+              "value": "pretend-work-completed",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "45054b03-a287-4f16-a9b1-4a4567247e78",
+      "name": "Deliberate Failure",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        448,
+        0
+      ],
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "LAB-08 SIMULATED FAILURE: downstream API unreachable (intentional test error)"
+      }
+    },
+    {
+      "id": "a179caca-5186-4e0d-baa3-b4d12147b716",
+      "name": "Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Pretend Work OK": {
+      "main": [
+        [
+          {
+            "node": "Deliberate Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Pretend Work OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "nodeGroups": [],
+  "pinData": null,
+  "tags": [
+    {
+      "name": "hermes-lab"
+    }
+  ],
+  "versionMetadata": {
+    "name": "Restore manual trigger",
+    "description": "Test finished; restored harmless manual trigger so the victim cannot be activated with a live self-destructing webhook."
+  },
+  "active": false
+}

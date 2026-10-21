@@ -1,0 +1,172 @@
+{
+  "name": "HERMES-LAB - 04 Parent Calls Sub",
+  "description": "HERMES-LAB practice workflow 4b (parent): manual trigger produces a numbers array, Execute Sub-workflow node (Define Below inputs bound via expressions) calls HERMES-LAB - 04 Sub Calc Stats in mode once, then shapes the returned cont",
+  "nodes": [
+    {
+      "id": "7c1d89fc-bafe-49c2-a4e3-8a1a6305890f",
+      "name": "Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "bcda0aa2-2fd7-45be-9dff-2991a3dcc86f",
+      "name": "Produce Numbers",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        0
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "nums",
+              "name": "numbers",
+              "value": "={{ [3, 11, 7, 29, 5, 13] }}",
+              "type": "array"
+            },
+            {
+              "id": "lbl",
+              "name": "label",
+              "value": "Q3 sample",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "c0ed1f73-4564-4681-8384-0255c709ce79",
+      "name": "Call Stats Sub",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        448,
+        0
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "",
+          "cachedResultName": "HERMES-LAB - 04 Sub Calc Stats"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "numbers": "={{ $(\"Produce Numbers\").item.json.numbers }}",
+            "label": "={{ $(\"Produce Numbers\").item.json.label }}"
+          },
+          "schema": [
+            {
+              "id": "numbers",
+              "displayName": "numbers",
+              "required": true,
+              "display": true,
+              "type": "array"
+            },
+            {
+              "id": "label",
+              "displayName": "label",
+              "required": true,
+              "display": true,
+              "type": "string"
+            }
+          ]
+        },
+        "mode": "once"
+      }
+    },
+    {
+      "id": "a732aa06-c94c-4b4b-986c-7f68d3f705d4",
+      "name": "Use Sub Result",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        672,
+        0
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "summary",
+              "name": "summary",
+              "value": "=Sub said [{{ $(\"Call Stats Sub\").item.json.label }}]: count={{ $(\"Call Stats Sub\").item.json.count }} sum={{ $(\"Call Stats Sub\").item.json.sum }} avg={{ $(\"Call Stats Sub\").item.json.avg }} max={{ $(\"Call Stats Sub\").item.json.max }}",
+              "type": "string"
+            },
+            {
+              "id": "when",
+              "name": "builtAt",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Produce Numbers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Produce Numbers": {
+      "main": [
+        [
+          {
+            "node": "Call Stats Sub",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Stats Sub": {
+      "main": [
+        [
+          {
+            "node": "Use Sub Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "nodeGroups": [],
+  "pinData": null,
+  "tags": [
+    {
+      "name": "hermes-lab"
+    }
+  ],
+  "versionMetadata": {
+    "name": "Initial: parent invoking sub-workflow",
+    "description": "Practice lab 04b: parent workflow invoking the stats sub-workflow with typed workflowInputs and consuming its return contract."
+  },
+  "active": false
+}

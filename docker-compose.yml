@@ -1,0 +1,41 @@
+# HERMES-LAB one-command sandbox: n8n + the mock enrichment API.
+#
+#   docker compose up -d
+#
+#   n8n UI        http://localhost:5678   (create a local owner account on first visit)
+#   mock API      http://localhost:8899/enrich?email=ada@acme.com
+#
+# The lab 06 webhook workflow calls the mock API at http://host.docker.internal:8899
+# from inside the n8n container — that works because mock-enrich publishes 8899 on
+# the host. On Linux, extra_hosts maps host.docker.internal to the host gateway; on
+# Docker Desktop it resolves natively and the mapping is a harmless no-op.
+#
+# For the AI labs (05, 09) run Ollama on the HOST and create an Ollama (ollamaApi)
+# credential in the n8n UI with Base URL http://host.docker.internal:11434.
+# Everything here is disposable: docker compose down -v wipes the instance.
+
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - N8N_HEADLESS_SERVICE=true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    restart: unless-stopped
+
+  mock-enrich:
+    image: python:3-alpine
+    command: python /app/mock_enrich.py
+    volumes:
+      - ./support/mock_enrich.py:/app/mock_enrich.py:ro
+    ports:
+      - "8899:8899"
+    restart: unless-stopped
+
+volumes:
+  n8n_data:

@@ -1,0 +1,282 @@
+{
+  "name": "HERMES-LAB - 09 AI Repurposer",
+  "description": "Ladder step 5 capstone: 1 source article -> 3 chained Basic LLM Chain calls on local bonsai-2:4b (tweet, marketing email, 3 headlines) -> Content Pack shaper. Continue-on-Fail (onError continueRegularOutput on each chain). Needs the ollamaApi credential b",
+  "nodes": [
+    {
+      "id": "ddb55947-48b5-400e-ba63-7a9c1caa6ed4",
+      "name": "Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        112
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "74b0173f-f4ce-4f6c-806a-101d09e08990",
+      "name": "Source Article",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        112
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ti",
+              "name": "title",
+              "value": "LabBots Tiny: the $39 desk robot that reminds you to stretch",
+              "type": "string"
+            },
+            {
+              "id": "bo",
+              "name": "body",
+              "value": "LabBots Tiny is a palm-sized desktop robot that costs $39. It sits beside your monitor, watches how long you have been sitting, and gently rolls in front of your keyboard every 45 minutes to lead a 30-second stretch. It has a matte aluminum shell, no camera and no microphone for privacy, and runs six months on a USB-C charge. Early units ship in December.",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "1bd0029e-a64f-4a7e-bdbd-ecdb17654eb9",
+      "name": "Tweetize",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        448,
+        112
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "=Turn this article into ONE punchy tweet under 240 characters with exactly 2 hashtags. Title: {{ $json.title }} Body: {{ $json.body }} Reply with only the tweet."
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "bce8f09c-7bf9-4b84-b029-3545f057cae2",
+      "name": "Ollama bonsai",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        528,
+        336
+      ],
+      "parameters": {
+        "model": "bonsai-2:4b",
+        "options": {
+          "keepAlive": "30m",
+          "numPredict": 512,
+          "temperature": 0.4,
+          "think": false
+        }
+      }
+    },
+    {
+      "id": "5e452a1a-9d88-49b3-8d87-256b5e37dc44",
+      "name": "Emailize",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        800,
+        112
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "=Write a short marketing email (max 4 sentences, no greeting) for this product. Title: {{ $(\"Source Article\").item.json.title }} Body: {{ $(\"Source Article\").item.json.body }} Reply with only the email text."
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "2b40a100-7b1f-4fd7-9a07-789e19b7cce5",
+      "name": "Headlinize",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1152,
+        112
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "=Give exactly 3 alternative click-worthy headlines for this article, one per line, no numbering. Title: {{ $(\"Source Article\").item.json.title }} Body: {{ $(\"Source Article\").item.json.body }}"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "5388b1cc-c5a9-4eb2-ab45-b39e43edcb9e",
+      "name": "Content Pack",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1504,
+        112
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "t",
+              "name": "tweet",
+              "value": "={{ $(\"Tweetize\").item.json.text ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "e",
+              "name": "email",
+              "value": "={{ $(\"Emailize\").item.json.text ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "h",
+              "name": "headlines",
+              "value": "={{ $(\"Headlinize\").item.json.text ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "ti",
+              "name": "sourceTitle",
+              "value": "={{ $(\"Source Article\").item.json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "ge",
+              "name": "generatedAt",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "0d2975a8-a455-4f70-b6e1-e52ade2c495f",
+      "name": "Empty-Output Guard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const out = $input.first().json;\nconst empty = (s) => s === undefined || s === null || String(s).trim() === '';\nif (empty(out.tweet) && empty(out.email) && empty(out.headlines)) {\n  throw new Error('LAB-09 ALL_OUTPUTS_EMPTY: local model produced nothing (check ollama serve + bonsai-2:4b availability)');\n}\nreturn [{ json: { ...out, guardPassedAt: new Date().toISOString() } }];",
+        "mode": "runOnceForAllItems"
+      }
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Source Article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Source Article": {
+      "main": [
+        [
+          {
+            "node": "Tweetize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tweetize": {
+      "main": [
+        [
+          {
+            "node": "Emailize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama bonsai": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Tweetize",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Emailize",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Headlinize",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Emailize": {
+      "main": [
+        [
+          {
+            "node": "Headlinize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Headlinize": {
+      "main": [
+        [
+          {
+            "node": "Content Pack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Content Pack": {
+      "main": [
+        [
+          {
+            "node": "Empty-Output Guard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "nodeGroups": [],
+  "pinData": null,
+  "tags": [
+    {
+      "name": "ai"
+    },
+    {
+      "name": "hermes-lab"
+    }
+  ],
+  "versionMetadata": {
+    "name": "Restore real model",
+    "description": "Updated nodes: Ollama bonsai"
+  },
+  "active": false
+}

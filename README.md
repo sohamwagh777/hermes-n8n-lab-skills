@@ -1,14 +1,15 @@
-# Hermes × n8n — Lab Skills, Importable Labs & Agent Bootstrapping Prompt
+# Hermes × n8n — The Warm-Up
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![secret-scan](https://github.com/sohamwagh777/hermes-n8n-lab-skills/actions/workflows/secret-scan.yml/badge.svg)](https://github.com/sohamwagh777/hermes-n8n-lab-skills/actions/workflows/secret-scan.yml)
 
-Two battle-tested Hermes skills for learning **n8n by doing**, the 13 practice
-workflows from a real supervised run (import them, don't build them from
-scratch), a one-command sandbox, and a ready-to-paste prompt that gets any
-Hermes instance comfortable with n8n through a supervised practice ladder (all
-workflows built are sandbox-prefixed, never activated, never touch real data or
-credentials).
+**The n8n warm-up for Hermes agents** — a prompt-skill + practice gym so any
+Hermes gets comfortable with n8n before it ever touches a real workflow. Two
+battle-tested skills, the 13 practice workflows from a real supervised run
+(import them, don't build them from scratch), a one-command sandbox, and a
+ready-to-paste prompt that runs your agent through a supervised practice ladder
+(all workflows built are sandbox-prefixed, never activated, never touch real
+data or credentials).
 
 This is the exact method that took a fresh Hermes from zero to: expressions,
 loops, error branches, sub-workflow libraries, webhook→dedupe→HTTP pipelines,
